@@ -52,23 +52,88 @@ class AppConfig:
         return self.create_llm(self.llm_name_for_agent(agent_name))
 
     def create_llm(self, llm_name: str) -> BaseChatModel:
-        """Builds (once) the chat model described under `llms.<llm_name>`."""
+        """Build and cache a configured LLM with local fallback."""
         if llm_name in self._llm_cache:
             return self._llm_cache[llm_name]
 
         available = self._raw["llms"]
         if llm_name not in available:
-            raise KeyError(f"LLM '{llm_name}' is not defined in config.yaml. Available: {list(available)}")
+            raise KeyError(
+                f"LLM '{llm_name}' is not defined in config.yaml. "
+                f"Available: {list(available)}"
+            )
 
         settings = dict(available[llm_name])
-        provider = settings.pop("provider")
-        model = settings.pop("model")
-        extra_params = {key: self._expand_env(value) for key, value in settings.items()}
+        provider = settings.get("provider")
 
-        llm = init_chat_model(model=self._expand_env(model), model_provider=provider, **extra_params)
+        if provider != "ollama" and not self._has_required_credentials(settings):
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Credentials for provider '%s' are missing; using Ollama.",
+                provider,
+            )
+            llm = self._create_ollama_fallback()
+            self._llm_cache[llm_name] = llm
+            return llm
+
+        settings.pop("provider")
+        model = settings.pop("model")
+        extra_params = {
+            key: self._expand_env(value)
+            for key, value in settings.items()
+        }
+
+        llm = init_chat_model(
+            model=self._expand_env(model),
+            model_provider=provider,
+            **extra_params,
+        )
         self._llm_cache[llm_name] = llm
         return llm
+    
+    def _has_required_credentials(self, settings: dict) -> bool:
+        """Check credentials for the configured provider only."""
+        provider = settings.get("provider")
 
+        required_by_provider = {
+            "azure_openai": [
+                "AZURE_OPENAI_CHAT_DEPLOYMENT_NAME",
+                "AZURE_OPENAI_ENDPOINT",
+                "AZURE_OPENAI_API_VERSION",
+                "AZURE_OPENAI_API_KEY",
+            ],
+            "openai": ["OPENAI_API_KEY"],
+            "anthropic": ["ANTHROPIC_API_KEY"],
+        }
+
+        required = required_by_provider.get(provider, [])
+
+        # Providers without required environment credentials can proceed.
+        return all(os.getenv(name, "").strip() for name in required)
+
+
+    def _create_ollama_fallback(self) -> BaseChatModel:
+        """Return the configured local fallback model, using the cache."""
+        fallback_name = "ollama_qwen"
+
+        if fallback_name in self._llm_cache:
+            return self._llm_cache[fallback_name]
+
+        settings = dict(self._raw["llms"][fallback_name])
+        settings.pop("provider", None)
+        model = settings.pop("model", "qwen3:4b")
+
+        params = {
+            key: self._expand_env(value)
+            for key, value in settings.items()
+        }
+
+        from langchain_ollama import ChatOllama
+
+        llm = ChatOllama(model=model, **params)
+        self._llm_cache[fallback_name] = llm
+        return llm
     # ----- helpers ----------------------------------------------------------
     @staticmethod
     def _expand_env(value: Any) -> Any:

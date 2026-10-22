@@ -34,6 +34,11 @@ llms:
     temperature: 0.2
     max_tokens: 2048
 
+  ollama_qwen:
+    provider: ollama
+    model: qwen3:1.7b
+    temperature: 0.0
+
 default_llm: azure_gpt
 
 # Optional per-agent override. Agents not listed here use "default_llm".
