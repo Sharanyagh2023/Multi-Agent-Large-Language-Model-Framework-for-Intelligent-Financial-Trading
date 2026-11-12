@@ -34,21 +34,11 @@ llms:
     temperature: 0.2
     max_tokens: 2048
 
-  ollama_qwen:
-    provider: ollama
-    model: qwen3:1.7b
-    temperature: 0.0
-
 default_llm: azure_gpt
 
 # Optional per-agent override. Agents not listed here use "default_llm".
-agents:
-  fundamental_analyst: azure_gpt
-  technical_analyst: azure_gpt
-  sentiment_analyst: azure_gpt
-  news_analyst: azure_gpt
-  trader: azure_gpt
-  risk_manager: azure_gpt
+# Example: to use Azure for the trader only, add  "trader: azure_gpt".
+agents: {}
 
 # Phase 1 supports the Indian market only. To add a market later, add a block here
 # (same keys) and point "active_market" at it.
@@ -71,6 +61,22 @@ trading:
   price_lookback_days: 730      # history given to the technical analyst / ML model
   news_limit: 10                # max headlines per run
   max_position_pct: 0.20        # hard cap: one stock never exceeds 20% of the portfolio
+
+# Technical analyst's ML direction model (see ml/README.md). One LightGBM model is
+# trained on the pooled history of the training universe and re-used until it is
+# older than max_model_age_days; it never sees prices after the analysis date.
+# Leave "universe" out to use the default list of ~47 Nifty 50 large caps (ml/settings.py).
+technical_model:
+  horizon_days: 5                   # predict down / flat / up over the next 5 trading days
+  flat_threshold_vol_multiple: 0.5  # a move smaller than 0.5 x the stock's normal 5-day move counts as "flat"
+  training_years: 8
+  max_model_age_days: 90            # retrain automatically after this (also during backtests)
+  min_edge: 0.03                    # balanced accuracy above chance (0.333) needed to call the model "weak"; 2x = "useful"
+  validation_folds: 4
+  validation_share: 0.4
+  calibration_share: 0.15
+  top_drivers: 5
+  artifacts_dir: ml/artifacts
 
 backtest:
   start_date: "2025-01-01"
