@@ -246,7 +246,16 @@ class AnalystAgent(BaseAgent):
             market_name=self.market_data.market["name"],
             currency=self.market_data.market["currency"],
         )
-        opinion = self.ask_llm(system_prompt, self.build_prompt(ticker, as_of_date, data), AnalystOpinion)
+        opinion = self.ask_llm(
+            system_prompt,
+            self.build_prompt(ticker, as_of_date, data),
+            AnalystOpinion,
+        )
+
+        print("\nDEBUG - ORIGINAL FUNDAMENTAL OPINION:")
+        print(opinion.model_dump_json(indent=2))
+
+        opinion = self.validate_opinion(opinion, data)
         report = AnalystReport(analyst=self.name, ticker=ticker, **opinion.model_dump())
         return {"analyst_reports": [report]}
 
@@ -259,3 +268,11 @@ class AnalystAgent(BaseAgent):
             summary="No data was available for this analyst, so no view is given.",
             key_points=[],
         )
+
+    def validate_opinion(
+        self,
+        opinion: AnalystOpinion,
+        data: Dict[str, Any],
+    ) -> AnalystOpinion:
+        """Default validation hook for analyst opinions."""
+        return opinion

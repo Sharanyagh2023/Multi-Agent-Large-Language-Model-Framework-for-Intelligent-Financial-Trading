@@ -85,3 +85,4 @@ class Backtester:
                 }
             )
         return weight_by_date, decision_rows
+

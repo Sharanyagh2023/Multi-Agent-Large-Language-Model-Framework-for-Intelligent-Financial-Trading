@@ -24,7 +24,10 @@ def test_risk_manager_caps_position_size(risk_manager):
         comments="Test assessment",
     )
 
-    result = risk_manager.apply_guardrails(assessment)
+    result = risk_manager.apply_guardrails(
+        assessment,
+        proposed_position_size_pct=0.80,
+    )
 
     assert result.adjusted_position_size_pct == pytest.approx(0.20)
 
@@ -37,7 +40,10 @@ def test_risk_manager_reject_forces_zero_position(risk_manager):
         comments="Test rejection",
     )
 
-    result = risk_manager.apply_guardrails(assessment)
+    result = risk_manager.apply_guardrails(
+        assessment,
+        proposed_position_size_pct=0.80,
+    )
 
     assert result.adjusted_position_size_pct == 0.0
 

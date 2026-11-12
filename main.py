@@ -66,9 +66,24 @@ def main() -> None:
     config = load_config()
 
     if args.command == "analyze":
-        workflow = TradingWorkflow(config, MarketDataService(config.market, point_in_time=False))
+        analysis_date = date.fromisoformat(args.date)
+
+        if analysis_date > date.today():
+            raise ValueError("Analysis date cannot be in the future.")
+
+        point_in_time = analysis_date < date.today()
+
+        market_data = MarketDataService(
+            config.market,
+            point_in_time=point_in_time,
+        )
+
+        workflow = TradingWorkflow(config, market_data)
         ticker = workflow.market_data.normalize_ticker(args.ticker)
-        print_analysis(workflow.run_with_details(ticker, args.date))
+
+        print_analysis(
+            workflow.run_with_details(ticker, args.date)
+        )
         return
 
     # Backtests must not see today's fundamentals or news, hence point_in_time=True.

@@ -1,7 +1,7 @@
 
 from workflow.trading_graph import TradingWorkflow
 from core.schemas import AnalystReport, TradeProposal, RiskAssessment
-
+from agents.risk_manager import RiskManager
 
 class FakeAnalyst:
     def __init__(self, name, events):
@@ -121,3 +121,71 @@ def test_workflow_runs_agents_in_correct_order():
     decision = state["final_decision"]
     assert decision.action == "BUY"
     assert decision.position_size_pct == 0.15
+
+def test_adjusted_position_cannot_exceed_trader_proposal():
+
+    state = {
+        "ticker": "RELIANCE.NS",
+        "as_of_date": "2026-11-12",
+        "trade_proposal": TradeProposal(
+            action="BUY",
+            position_size_pct=0.03,
+            rationale="Test proposal",
+        ),
+        "risk_assessment": RiskAssessment(
+            decision="ADJUST",
+            risk_level="high",
+            adjusted_position_size_pct=0.20,
+            comments="Risk adjustment test",
+        ),
+    }
+
+    result = TradingWorkflow._finalize_decision(state)
+
+    decision = result["final_decision"]
+
+    assert decision.position_size_pct == 0.03
+    assert decision.position_size_pct <= state["trade_proposal"].position_size_pct
+
+def test_risk_guardrail_never_exceeds_trader_proposal():
+
+    manager = RiskManager.__new__(RiskManager)
+    manager.max_position_pct = 0.20
+
+    assessment = RiskAssessment(
+        decision="ADJUST",
+        risk_level="high",
+        adjusted_position_size_pct=0.20,
+        comments="Reduce position to 2%.",
+    )
+
+    result = manager.apply_guardrails(
+        assessment,
+        proposed_position_size_pct=0.02,
+    )
+
+    assert result.adjusted_position_size_pct == 0.02
+
+    assert (
+        result.adjusted_position_size_pct
+        <= 0.02
+    )
+
+def test_rejected_trade_has_zero_position_size():
+
+    manager = RiskManager.__new__(RiskManager)
+    manager.max_position_pct = 0.20
+
+    assessment = RiskAssessment(
+        decision="REJECT",
+        risk_level="high",
+        adjusted_position_size_pct=0.10,
+        comments="Risk is too high.",
+    )
+
+    result = manager.apply_guardrails(
+        assessment,
+        proposed_position_size_pct=0.02,
+    )
+
+    assert result.adjusted_position_size_pct == 0.0

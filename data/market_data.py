@@ -17,11 +17,43 @@ import yfinance as yf
 
 logger = logging.getLogger(__name__)
 
-FUNDAMENTAL_FIELDS = [
-    "longName", "sector", "industry", "marketCap", "trailingPE", "forwardPE", "priceToBook",
-    "profitMargins", "operatingMargins", "returnOnEquity", "revenueGrowth", "earningsGrowth",
-    "debtToEquity", "currentRatio", "freeCashflow", "dividendYield", "beta",
+
+METADATA_FIELDS = [
+    "longName",
+    "sector",
+    "industry",
 ]
+
+COMMON_FUNDAMENTAL_FIELDS = [
+    "marketCap",
+    "trailingPE",
+    "forwardPE",
+    "priceToBook",
+    "returnOnEquity",
+    "dividendYield",
+    "beta",
+]
+
+NON_BANK_FUNDAMENTAL_FIELDS = [
+    "profitMargins",
+    "operatingMargins",
+    "revenueGrowth",
+    "earningsGrowth",
+    "debtToEquity",
+    "currentRatio",
+    "freeCashflow",
+]
+
+BANK_FUNDAMENTAL_FIELDS = [
+    "returnOnAssets",
+]
+
+FUNDAMENTAL_FIELDS = (
+    METADATA_FIELDS
+    + COMMON_FUNDAMENTAL_FIELDS
+    + NON_BANK_FUNDAMENTAL_FIELDS
+    + BANK_FUNDAMENTAL_FIELDS
+)
 
 
 class MarketDataService:
@@ -65,16 +97,45 @@ class MarketDataService:
         return self.get_price_history(ticker, start, as_of)
 
     # ----- fundamentals -----------------------------------------------------
+    
     def get_fundamentals(self, ticker: str) -> Dict[str, Any]:
-        """Selected valuation / profitability / balance-sheet fields (empty in point-in-time mode)."""
+        """Collect fundamental metrics according to the company's sector."""
+
         if self.point_in_time:
             return {}
+
         try:
             info = yf.Ticker(ticker).info
-        except Exception as error:  # network or provider problems should not crash the workflow
-            logger.warning("Could not load fundamentals for %s: %s", ticker, error)
+        except Exception as error:
+            logger.warning(
+                "Could not load fundamentals for %s: %s",
+                ticker,
+                error
+            )
             return {}
-        return {field: info[field] for field in FUNDAMENTAL_FIELDS if info.get(field) is not None}
+
+        sector = info.get("sector")
+        industry = info.get("industry")
+
+        # Select metrics according to the company's sector.
+        if sector == "Financial Services" and industry and "bank" in industry.lower():
+            selected_fields = (
+                METADATA_FIELDS
+                + COMMON_FUNDAMENTAL_FIELDS
+                + BANK_FUNDAMENTAL_FIELDS
+            )
+        else:
+            selected_fields = (
+                METADATA_FIELDS
+                + COMMON_FUNDAMENTAL_FIELDS
+                + NON_BANK_FUNDAMENTAL_FIELDS
+            )
+
+        return {
+            field: info[field]
+            for field in selected_fields
+            if info.get(field) is not None
+        }
 
     # ----- news -------------------------------------------------------------
     def get_news(self, ticker: str, as_of: str, limit: int) -> List[Dict[str, str]]:
@@ -115,3 +176,22 @@ class MarketDataService:
         """Closing prices for a market index, e.g. the benchmark (^NSEI) or the fear index (^INDIAVIX)."""
         prices = self.get_recent_prices(symbol, as_of, lookback_days)
         return prices["Close"] if not prices.empty else pd.Series(dtype=float)
+
+    def debug_fundamental_metadata(self, ticker: str):
+        info = yf.Ticker(ticker).info
+
+        print(f"\n--- {ticker} ---")
+
+        fields = [
+            "longName",
+            "currency",
+            "financialCurrency",
+            "dividendYield",
+            "marketCap",
+            "freeCashflow",
+            "sector",
+            "industry",
+        ]
+
+        for field in fields:
+            print(f"{field}: {info.get(field)}")
