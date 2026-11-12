@@ -1,4 +1,4 @@
-# RIO – Multi-Agent LLM Framework for Explainable, Risk-Aware Trading
+# Multi-Agent LLM Framework for Explainable, Risk-Aware Trading
 
 **Phase 1 covers the Indian market only (NSE/BSE).**
 
