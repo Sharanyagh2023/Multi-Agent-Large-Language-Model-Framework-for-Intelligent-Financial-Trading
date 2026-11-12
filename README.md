@@ -47,9 +47,16 @@ rio/
 │   └── risk_manager.py          reviews the proposal, applies position limits
 ├── workflow/
 │   └── trading_graph.py         creates the agents and wires the LangGraph workflow
-└── evaluation/
-    ├── metrics.py               cumulative return, Sharpe ratio, max drawdown, VaR
-    └── backtest.py              walk-forward backtest versus buy-and-hold
+├── evaluation/
+│   ├── metrics.py               cumulative return, Sharpe ratio, max drawdown, VaR
+│   └── backtest.py              walk-forward backtest versus buy-and-hold
+├── api/
+│   ├── server.py                FastAPI app: POST /agui (AG-UI events) + serves the frontend
+│   └── agui_agent.py            turns chat messages into agent runs and streams AG-UI events
+└── frontend/
+    ├── index.html               layout: results panel (left) + chat (right)
+    ├── styles.css               light / dark theme
+    └── app.js                   AG-UI client, chat, stage cards, backtest chart
 ```
 
 ### What each file does
@@ -138,6 +145,36 @@ python main.py backtest TCS
 # Backtest with your own dates
 python main.py backtest HDFCBANK --start 2024-01-01 --end 2024-12-31 --rebalance-days 21
 ```
+
+### Web UI
+
+```bash
+python main.py serve              # then open http://127.0.0.1:8000
+```
+
+The chat on the right accepts plain language ("Analyze Infosys as of end of June 2025",
+"Backtest TCS for H1 2025", "Why did the risk manager cut the size?"). The left panel shows every stage
+as it runs: the four analyst reports (signal, confidence, key points), the trader's proposal, the risk
+review with its metrics, and the final decision; backtests show progress, a metrics table, equity curves
+and every decision.
+
+**Saved history and checkpoints.** The server stores everything in SQLite (paths under `storage` in
+`config.yaml`, inside the git-ignored `outputs/` folder), so it survives restarts:
+
+* `outputs/rio.sqlite`: chats, messages, the dashboard state of each chat, every run, and the output of
+  every agent stage (`stage_results`). The sidebar lists past chats; click one to reopen it, as in ChatGPT.
+  `GET /api/runs/<run id>` returns a run with all its stage outputs.
+* `outputs/checkpoints.sqlite`: LangGraph checkpoints taken after every stage of an analysis. If the
+  server stops mid-analysis, the chat shows **Interrupted** and a **Resume from checkpoint** button that
+  continues from the last finished stage instead of starting again. (Backtests are not checkpointed;
+  each decision is stored in the database.)
+
+Delete the `outputs/` folder to clear all history.
+
+The browser and server talk over [AG-UI](https://docs.ag-ui.com), an open event protocol for agent UIs
+(`api/agui_agent.py` streams `STEP_*`, `STATE_SNAPSHOT/STATE_DELTA` and `TEXT_MESSAGE_*` events;
+`frontend/app.js` is a small client for them). A short "router" LLM call decides whether a message is
+an analysis, a backtest or a question; it uses `default_llm` unless `agents.chat_assistant` is set.
 
 **`analyze` prints:** each analyst's signal, confidence and key points, the trader's proposal, the risk review
 and the final decision (action and position size).

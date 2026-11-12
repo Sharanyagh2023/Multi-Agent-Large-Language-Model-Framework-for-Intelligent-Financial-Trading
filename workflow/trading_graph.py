@@ -7,8 +7,9 @@
 
 The four analysts run in parallel; `trader` starts only after all four finish.
 """
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List, Optional
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -28,23 +29,60 @@ from data.market_data import MarketDataService
 class TradingWorkflow:
     """Creates the agents from the config and wires them into a compiled graph."""
 
-    def __init__(self, config: AppConfig, market_data: MarketDataService) -> None:
+    def __init__(
+        self, config: AppConfig, market_data: MarketDataService, checkpointer: Optional[BaseCheckpointSaver] = None
+    ) -> None:
+        """`checkpointer` (optional) saves the state after every stage, so a run can be resumed.
+
+        With a checkpointer, every run needs its own `thread_id` (see `stream_updates`).
+        """
         self.config = config
         self.market_data = market_data
+        self.checkpointer = checkpointer
         self.analysts: List[BaseAgent] = self._create_analysts()
         self.trader: BaseAgent = self._create_trader()
         self.risk_manager: BaseAgent = self._create_risk_manager()
         self.graph: CompiledStateGraph = self._build_graph()
 
     # ----- public API -------------------------------------------------------
-    def decide(self, ticker: str, as_of_date: str) -> FinalDecision:
-        """Runs the whole team for one stock on one date and returns its decision."""
-        final_state = self.graph.invoke({"ticker": ticker, "as_of_date": as_of_date, "analyst_reports": []})
+    def decide(self, ticker: str, as_of_date: str, config: Optional[Dict[str, Any]] = None) -> FinalDecision:
+        """Runs the whole team for one stock on one date and returns its decision.
+
+        `config` is an optional LangGraph run config (e.g. callbacks that cancel the run).
+        """
+        final_state = self.graph.invoke({"ticker": ticker, "as_of_date": as_of_date, "analyst_reports": []}, config)
         return final_state["final_decision"]
 
     def run_with_details(self, ticker: str, as_of_date: str) -> Dict[str, Any]:
         """Same as `decide` but returns the full state (analyst reports, proposal, risk review)."""
         return self.graph.invoke({"ticker": ticker, "as_of_date": as_of_date, "analyst_reports": []})
+
+    def stream_updates(
+        self, ticker: str, as_of_date: str, thread_id: str, config: Optional[Dict[str, Any]] = None
+    ) -> Iterator[Dict[str, Any]]:
+        """Runs the team and yields `{node_name: update}` as each stage finishes.
+
+        With a checkpointer, the run is saved under `thread_id` after every stage. Calling this
+        again with the same `thread_id` RESUMES that run: finished stages are not executed again,
+        only the remaining ones run. A run that already finished yields nothing.
+        """
+        run_config: Dict[str, Any] = dict(config or {})
+        run_config["configurable"] = {**run_config.get("configurable", {}), "thread_id": thread_id}
+
+        inputs: Optional[Dict[str, Any]] = {"ticker": ticker, "as_of_date": as_of_date, "analyst_reports": []}
+        if self.checkpointer is not None:
+            saved = self.graph.get_state(run_config)
+            if saved.values.get("final_decision") is not None:
+                return  # already complete
+            if saved.next:
+                inputs = None  # continue from the last checkpoint
+        yield from self.graph.stream(inputs, run_config, stream_mode="updates")
+
+    def saved_state(self, thread_id: str) -> Dict[str, Any]:
+        """The checkpointed state of a run (empty without a checkpointer or an unknown thread)."""
+        if self.checkpointer is None:
+            return {}
+        return dict(self.graph.get_state({"configurable": {"thread_id": thread_id}}).values)
 
     # ----- agent creation ---------------------------------------------------
     def _llm_for(self, agent_name: str):
@@ -91,7 +129,7 @@ class TradingWorkflow:
         graph.add_edge(self.risk_manager.name, "finalize")
         graph.add_edge("finalize", END)
 
-        return graph.compile()
+        return graph.compile(checkpointer=self.checkpointer)
 
     @staticmethod
     def _finalize_decision(state: TradingState) -> Dict[str, Any]:
