@@ -13,7 +13,7 @@ how the period ended; and fundamentals/news are switched off (see MarketDataServ
 """
 import logging
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
@@ -30,6 +30,12 @@ class BacktestResult:
     decisions: pd.DataFrame          # one row per rebalance date
     strategy_metrics: Dict[str, float]
     buy_and_hold_metrics: Dict[str, float]
+    strategy_returns: pd.Series      # daily returns, used for equity-curve charts
+    buy_and_hold_returns: pd.Series
+
+
+# Called after every rebalance decision: (row, index, total). Lets a UI show progress.
+DecisionCallback = Callable[[Dict[str, Any], int, int], None]
 
 
 class Backtester:
@@ -38,7 +44,16 @@ class Backtester:
         self.market_data = market_data
         self.risk_free_rate = risk_free_rate
 
-    def run(self, ticker: str, start_date: str, end_date: str, rebalance_days: int) -> BacktestResult:
+    def run(
+        self,
+        ticker: str,
+        start_date: str,
+        end_date: str,
+        rebalance_days: int,
+        on_decision: Optional[DecisionCallback] = None,
+        run_config: Optional[Dict[str, Any]] = None,
+    ) -> BacktestResult:
+        """`run_config` is passed to every agent run (the web UI uses it to cancel a backtest)."""
         prices = self.market_data.get_price_history(ticker, start_date, end_date)
         if len(prices) < rebalance_days * 2:
             raise ValueError(f"Not enough price history for {ticker} between {start_date} and {end_date}.")
@@ -46,7 +61,7 @@ class Backtester:
         daily_returns = prices["Close"].pct_change().fillna(0.0)
         decision_dates = list(prices.index[::rebalance_days])
 
-        weight_by_date, decision_rows = self._collect_decisions(ticker, decision_dates)
+        weight_by_date, decision_rows = self._collect_decisions(ticker, decision_dates, on_decision, run_config)
 
         # A decision made on day t is traded at the close of t and earns returns from t+1.
         weights = pd.Series(weight_by_date).reindex(prices.index).ffill().fillna(0.0).shift(1).fillna(0.0)
@@ -57,17 +72,25 @@ class Backtester:
             decisions=pd.DataFrame(decision_rows),
             strategy_metrics=summarize_performance(strategy_returns, self.risk_free_rate),
             buy_and_hold_metrics=summarize_performance(daily_returns, self.risk_free_rate),
+            strategy_returns=strategy_returns,
+            buy_and_hold_returns=daily_returns,
         )
 
-    def _collect_decisions(self, ticker: str, decision_dates: List[pd.Timestamp]):
+    def _collect_decisions(
+        self,
+        ticker: str,
+        decision_dates: List[pd.Timestamp],
+        on_decision: Optional[DecisionCallback] = None,
+        run_config: Optional[Dict[str, Any]] = None,
+    ):
         current_weight = 0.0
         weight_by_date: Dict[pd.Timestamp, float] = {}
         decision_rows = []
 
-        for decision_date in decision_dates:
+        for index, decision_date in enumerate(decision_dates):
             date_text = decision_date.strftime("%Y-%m-%d")
             logger.info("Backtest decision for %s on %s", ticker, date_text)
-            decision = self.workflow.decide(ticker, date_text)
+            decision = self.workflow.decide(ticker, date_text, run_config)
 
             if decision.action == "BUY":
                 current_weight = decision.position_size_pct
@@ -76,13 +99,14 @@ class Backtester:
             # HOLD keeps current_weight unchanged
 
             weight_by_date[decision_date] = current_weight
-            decision_rows.append(
-                {
-                    "date": date_text,
-                    "action": decision.action,
-                    "weight": current_weight,
-                    "risk_level": decision.risk_level,
-                }
-            )
+            row = {
+                "date": date_text,
+                "action": decision.action,
+                "weight": current_weight,
+                "risk_level": decision.risk_level,
+            }
+            decision_rows.append(row)
+            if on_decision is not None:
+                on_decision(row, index, len(decision_dates))
         return weight_by_date, decision_rows
 

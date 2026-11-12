@@ -15,6 +15,7 @@ from langchain.chat_models import init_chat_model
 from langchain_core.language_models.chat_models import BaseChatModel
 
 CONFIG_PATH = Path(__file__).parent / "config.yaml"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ENV_VARIABLE_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
@@ -42,6 +43,13 @@ class AppConfig:
     @property
     def backtest(self) -> Dict[str, Any]:
         return self._raw["backtest"]
+
+    @property
+    def storage_paths(self) -> Dict[str, Path]:
+        """Absolute paths of the results database and the checkpoint database."""
+        storage = {"database": "outputs/rio.sqlite", "checkpoints": "outputs/checkpoints.sqlite"}
+        storage.update(self._raw.get("storage") or {})
+        return {name: (PROJECT_ROOT / path).resolve() for name, path in storage.items()}
 
     # ----- LLM access -------------------------------------------------------
     def llm_name_for_agent(self, agent_name: str) -> str:

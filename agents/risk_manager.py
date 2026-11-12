@@ -62,7 +62,10 @@ class RiskManager(BaseAgent):
             max_position_pct=self.max_position_pct, market_name=self.market_data.market["name"]
         )
         assessment = self.ask_llm(system_prompt, user_prompt, RiskAssessment)
+
         return {"risk_assessment": self.apply_guardrails(assessment,state["trade_proposal"].position_size_pct,)}
+        return {"risk_assessment": self.apply_guardrails(assessment), "risk_metrics": risk_metrics}
+
 
     def compute_risk_metrics(self, ticker: str, as_of_date: str) -> Dict[str, float]:
         prices = self.market_data.get_recent_prices(ticker, as_of_date, lookback_days=365)
