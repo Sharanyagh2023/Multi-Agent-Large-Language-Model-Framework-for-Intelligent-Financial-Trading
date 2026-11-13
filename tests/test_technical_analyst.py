@@ -79,7 +79,7 @@ class FakeLLM:
     def __init__(self) -> None:
         self.last = None
 
-    def with_structured_output(self, schema):
+    def with_structured_output(self, schema, **kwargs):
         self.last = FakeStructuredLLM(schema)
         return self.last
 

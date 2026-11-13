@@ -42,7 +42,9 @@ def test_quota_error_falls_back_to_ollama(agent, cloud_llm):
         result = agent.ask_llm("system", "user", ExampleOutput)
 
     assert result == expected
-    mock_ollama.with_structured_output.assert_called_once_with(ExampleOutput)
+    mock_ollama.with_structured_output.assert_called_once_with(
+        ExampleOutput, method="json_schema"
+    )
 
 
 def test_unrelated_error_does_not_fall_back(agent, cloud_llm):
