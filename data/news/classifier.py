@@ -1,4 +1,4 @@
-﻿"""Rule-based event classifier. First version; an LLM classifier can replace it.
+"""Rule-based event classifier. First version; an LLM classifier can replace it.
 
 Order matters: the first matching rule wins, so put the most specific first.
 """

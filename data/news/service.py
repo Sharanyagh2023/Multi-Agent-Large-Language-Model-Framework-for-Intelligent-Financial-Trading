@@ -1,4 +1,4 @@
-﻿"""NewsService: the one object WP3 and the news analyst talk to.
+"""NewsService: the one object WP3 and the news analyst talk to.
 
 Contract (agreed with WP3/WP5):
     get_articles(ticker, as_of, limit) -> [{date, title, summary, source, url, ...}]

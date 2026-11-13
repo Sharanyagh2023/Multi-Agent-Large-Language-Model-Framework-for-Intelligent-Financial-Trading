@@ -1,4 +1,4 @@
-﻿"""Ticker -> company name and aliases, so searches find the right articles.
+"""Ticker -> company name and aliases, so searches find the right articles.
 
 Why: news says "Reliance Industries" or "RIL", never "RELIANCE.NS". Edit this
 table when the index changes. Entries are (primary name, [other aliases]).

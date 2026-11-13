@@ -1,4 +1,4 @@
-﻿"""Common interface for news sources."""
+"""Common interface for news sources."""
 import urllib.request
 from abc import ABC, abstractmethod
 from datetime import date

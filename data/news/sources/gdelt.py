@@ -1,4 +1,4 @@
-﻿"""GDELT DOC 2.0 API source with conservative rate-limit handling.
+"""GDELT DOC 2.0 API source with conservative rate-limit handling.
 
 GDELT can return HTTP 429, transient TLS/network errors, or an HTML/error
 response instead of JSON. This source treats those conditions as a temporary

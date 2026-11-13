@@ -1,4 +1,4 @@
-﻿"""Plain data container shared by every part of the news pipeline."""
+"""Plain data container shared by every part of the news pipeline."""
 from dataclasses import dataclass, field
 from datetime import date
 

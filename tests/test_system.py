@@ -1,3 +1,4 @@
+
 """System-level tests for RIO: input validation, schemas, risk guardrails, finalizer,
 metrics, the LangGraph workflow order and the backtester. Offline (fake LLM and data).
 
@@ -193,7 +194,9 @@ def test_workflow_runs_analysts_then_trader_then_risk(no_ml_model):
 # ----- 6. backtester ---------------------------------------------------------------
 def test_backtester_applies_decisions_from_the_next_day():
     class ScriptedWorkflow:
+
         def decide(self, ticker, as_of_date, run_config=None):
+
             return FinalDecision(ticker=ticker, as_of_date=as_of_date, action="BUY", position_size_pct=1.0,
                                  rationale="r", risk_level="low", risk_comments="c")
 

@@ -3,6 +3,7 @@ from workflow.trading_graph import TradingWorkflow
 from core.schemas import AnalystReport, TradeProposal, RiskAssessment
 from agents.risk_manager import RiskManager
 
+
 class FakeAnalyst:
     def __init__(self, name, events):
         self.name = name
@@ -85,6 +86,7 @@ def test_workflow_runs_agents_in_correct_order():
     # Construct the real workflow graph without calling its
     # constructor, which would initialize real LLM providers.
     workflow = TradingWorkflow.__new__(TradingWorkflow)
+    workflow.checkpointer = None
     workflow.analysts = analysts
     workflow.trader = trader
     workflow.risk_manager = risk_manager
@@ -123,6 +125,7 @@ def test_workflow_runs_agents_in_correct_order():
     assert decision.action == "BUY"
     assert decision.position_size_pct == 0.15
 
+
 def test_adjusted_position_cannot_exceed_trader_proposal():
 
     state = {
@@ -148,6 +151,7 @@ def test_adjusted_position_cannot_exceed_trader_proposal():
     assert decision.position_size_pct == 0.03
     assert decision.position_size_pct <= state["trade_proposal"].position_size_pct
 
+
 def test_risk_guardrail_never_exceeds_trader_proposal():
 
     manager = RiskManager.__new__(RiskManager)
@@ -171,6 +175,7 @@ def test_risk_guardrail_never_exceeds_trader_proposal():
         result.adjusted_position_size_pct
         <= 0.02
     )
+
 
 def test_rejected_trade_has_zero_position_size():
 

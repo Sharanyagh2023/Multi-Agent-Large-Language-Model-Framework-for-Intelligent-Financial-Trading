@@ -1,4 +1,4 @@
-﻿"""SQLite archive of every article we have seen.
+"""SQLite archive of every article we have seen.
 
 Why: free sources have little history. Keeping each article with its
 publication date means the archive grows into a point-in-time dataset, so

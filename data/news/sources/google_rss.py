@@ -1,4 +1,4 @@
-﻿"""Google News RSS: live, free, no key, but no deep history.
+"""Google News RSS: live, free, no key, but no deep history.
 
 Limits to verify against Google's terms before heavy use: the feed is meant
 for personal readers, returns about 100 items per query, and only reaches back

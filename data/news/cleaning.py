@@ -1,4 +1,4 @@
-﻿"""Clean the feed: drop irrelevant matches, remove duplicates and near-duplicates."""
+"""Clean the feed: drop irrelevant matches, remove duplicates and near-duplicates."""
 import re
 from difflib import SequenceMatcher
 
