@@ -1,3 +1,4 @@
+
 """System-level tests for RIO: input validation, schemas, risk guardrails, finalizer,
 metrics, the LangGraph workflow order and the backtester. Offline (fake LLM and data).
 
@@ -135,7 +136,9 @@ def test_schemas_reject_invalid_values():
 def test_risk_manager_guardrails(decision, llm_size, expected):
     manager = RiskManager(RecordingLLM(), FakeMarketData(), 365, max_position_pct=0.20)
     assessment = RiskAssessment(decision=decision, risk_level="high", adjusted_position_size_pct=llm_size, comments="c")
-    assert manager.apply_guardrails(assessment).adjusted_position_size_pct == pytest.approx(expected)
+    assert manager.apply_guardrails(
+        assessment, llm_size
+    ).adjusted_position_size_pct == pytest.approx(expected)
 
 
 @pytest.mark.parametrize("decision, proposed, approved, action, size", [
@@ -191,7 +194,7 @@ def test_workflow_runs_analysts_then_trader_then_risk(no_ml_model):
 # ----- 6. backtester ---------------------------------------------------------------
 def test_backtester_applies_decisions_from_the_next_day():
     class ScriptedWorkflow:
-        def decide(self, ticker, as_of_date):
+        def decide(self, ticker, as_of_date, config=None):
             return FinalDecision(ticker=ticker, as_of_date=as_of_date, action="BUY", position_size_pct=1.0,
                                  rationale="r", risk_level="low", risk_comments="c")
 
