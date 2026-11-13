@@ -1,6 +1,5 @@
-import math
+
 import logging
-from unittest import result
 import pytest
 from agents.fundamental_analyst import FundamentalAnalyst
 from core.schemas import AnalystOpinion
@@ -54,7 +53,7 @@ def test_empty_fundamental_data_skips_llm():
     analyst = FundamentalAnalyst.__new__(FundamentalAnalyst)
 
     class MockMarketData:
-        def get_fundamentals(self, ticker):
+        def get_fundamentals(self, ticker, as_of):
             return {}
 
     analyst.market_data = MockMarketData()
@@ -86,7 +85,7 @@ def test_partial_fundamental_data_is_preserved():
     analyst = FundamentalAnalyst.__new__(FundamentalAnalyst)
 
     class MockMarketData:
-        def get_fundamentals(self, ticker):
+        def get_fundamentals(self, ticker, as_of):
             return {
                 "longName": "Example Ltd",
                 "sector": "Technology",
@@ -121,7 +120,7 @@ def test_partial_fundamental_data_generates_analyst_report():
             "currency": "INR",
         }
 
-        def get_fundamentals(self, ticker):
+        def get_fundamentals(self, ticker, as_of):
             return {
                 "longName": "Example Ltd",
                 "sector": "Technology",
@@ -338,3 +337,113 @@ def test_unsupported_financial_claims_are_removed(claim):
     assert claim not in result.key_points
     assert len(result.key_points) > 0
     assert result.confidence <= 0.40
+
+def test_key_points_are_limited_to_five():
+
+    analyst = FundamentalAnalyst.__new__(FundamentalAnalyst)
+
+    opinion = AnalystOpinion(
+        signal="bullish",
+        confidence=0.85,
+        summary="Financial analysis",
+        key_points=[],
+    )
+
+    data = {
+        "longName": "Example Ltd",
+        "sector": "Technology",
+        "trailingPE": 22.5,
+        "forwardPE": 20.0,
+        "priceToBook": 4.5,
+        "profitMargins": 0.18,
+        "operatingMargins": 0.15,
+        "returnOnEquity": 0.20,
+        "revenueGrowth": 0.12,
+        "earningsGrowth": 0.10,
+        "debtToEquity": 45.0,
+        "currentRatio": 1.8,
+        "freeCashflow": 25000000,
+        "marketCap": 500000000,
+        "dividendYield": 0.02,
+        "beta": 1.1,
+    }
+
+    result = analyst.validate_opinion(opinion, data)
+
+    assert len(result.key_points) == 5
+
+def test_key_points_prioritize_different_categories():
+
+    analyst = FundamentalAnalyst.__new__(FundamentalAnalyst)
+
+    opinion = AnalystOpinion(
+        signal="bullish",
+        confidence=0.80,
+        summary="Financial analysis",
+        key_points=[],
+    )
+
+    data = {
+        "trailingPE": 22.5,
+        "profitMargins": 0.18,
+        "revenueGrowth": 0.12,
+        "debtToEquity": 45.0,
+        "marketCap": 500000000,
+        "forwardPE": 20.0,
+        "operatingMargins": 0.15,
+    }
+
+    result = analyst.validate_opinion(opinion, data)
+
+    assert len(result.key_points) == 5
+
+    assert any("Trailing P/E" in point for point in result.key_points)
+    assert any("Profit margin" in point for point in result.key_points)
+    assert any("Revenue growth" in point for point in result.key_points)
+    assert any("Debt-to-equity" in point for point in result.key_points)
+    assert any("Market capitalization" in point for point in result.key_points)
+
+def test_bank_expected_fields_exclude_non_bank_metrics():
+
+    analyst = FundamentalAnalyst.__new__(FundamentalAnalyst)
+
+    data = {
+        "sector": "Financial Services",
+        "industry": "Banks - Regional",
+    }
+
+    fields = analyst.get_expected_fields(data)
+
+    assert "returnOnAssets" in fields
+
+    assert "profitMargins" not in fields
+    assert "operatingMargins" not in fields
+    assert "debtToEquity" not in fields
+    assert "currentRatio" not in fields
+    assert "freeCashflow" not in fields
+
+def test_source_metadata_is_preserved():
+
+    analyst = FundamentalAnalyst.__new__(FundamentalAnalyst)
+
+    data = {
+        "longName": "Example Ltd",
+        "sector": "Technology",
+        "trailingPE": 22.5,
+        "_source_metadata": {
+            "provider": "Yahoo Finance via yfinance",
+            "retrieved_at": "2026-11-13T10:00:00",
+            "financial_reporting_period": (
+                "Not provided by the yfinance info endpoint"
+            ),
+        },
+    }
+
+    result = analyst.validate_data(data)
+
+    assert "_source_metadata" in result
+
+    assert (
+        result["_source_metadata"]["provider"]
+        == "Yahoo Finance via yfinance"
+    )

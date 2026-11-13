@@ -88,6 +88,7 @@ def test_workflow_runs_agents_in_correct_order():
     workflow.analysts = analysts
     workflow.trader = trader
     workflow.risk_manager = risk_manager
+    workflow.checkpointer = None
     workflow.graph = workflow._build_graph()
 
     state = workflow.run_with_details(

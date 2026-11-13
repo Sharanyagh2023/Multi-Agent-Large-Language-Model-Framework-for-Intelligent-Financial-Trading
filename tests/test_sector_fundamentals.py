@@ -1,3 +1,4 @@
+from datetime import datetime
 
 from data.market_data import MarketDataService
 import yaml
@@ -16,7 +17,10 @@ for ticker in tickers:
     print(f"FUNDAMENTALS: {ticker}")
     print("=" * 60)
 
-    data = service.get_fundamentals(ticker)
+    data = service.get_fundamentals(
+    ticker,
+    datetime.now().strftime("%Y-%m-%d"),
+)
 
     for key, value in data.items():
         print(f"{key}: {value}")

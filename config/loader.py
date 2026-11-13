@@ -60,11 +60,13 @@ class AppConfig:
         return self.create_llm(self.llm_name_for_agent(agent_name))
 
     def create_llm(self, llm_name: str) -> BaseChatModel:
-        """Build and cache a configured LLM with local fallback."""
+        """Build and cache a configured LLM with Groq fallback for Azure."""
+
         if llm_name in self._llm_cache:
             return self._llm_cache[llm_name]
 
         available = self._raw["llms"]
+
         if llm_name not in available:
             raise KeyError(
                 f"LLM '{llm_name}' is not defined in config.yaml. "
@@ -74,19 +76,33 @@ class AppConfig:
         settings = dict(available[llm_name])
         provider = settings.get("provider")
 
-        if provider != "ollama" and not self._has_required_credentials(settings):
-            import logging
+        # Azure -> Groq fallback
+        if (
+            provider == "azure_openai"
+            and not self._has_required_credentials(settings)
+        ):
+            fallback_name = self._raw.get("fallback_llm", "groq")
 
+            import logging
             logging.getLogger(__name__).warning(
-                "Credentials for provider '%s' are missing; using Ollama.",
-                provider,
+                "Azure credentials missing. Switching to %s.",
+                fallback_name,
             )
-            llm = self._create_ollama_fallback()
+
+            llm = self.create_llm(fallback_name)
             self._llm_cache[llm_name] = llm
             return llm
 
+        # Validate credentials for other providers
+        if provider != "ollama" and not self._has_required_credentials(settings):
+            raise EnvironmentError(
+                f"Credentials for provider '{provider}' are missing. "
+                "Check your .env file."
+            )
+
         settings.pop("provider")
         model = settings.pop("model")
+
         extra_params = {
             key: self._expand_env(value)
             for key, value in settings.items()
@@ -97,11 +113,13 @@ class AppConfig:
             model_provider=provider,
             **extra_params,
         )
+
         self._llm_cache[llm_name] = llm
         return llm
     
     def _has_required_credentials(self, settings: dict) -> bool:
-        """Check credentials for the configured provider only."""
+        """Check credentials for the configured provider."""
+
         provider = settings.get("provider")
 
         required_by_provider = {
@@ -113,14 +131,15 @@ class AppConfig:
             ],
             "openai": ["OPENAI_API_KEY"],
             "anthropic": ["ANTHROPIC_API_KEY"],
+            "groq": ["GROQ_API_KEY"],
         }
 
         required = required_by_provider.get(provider, [])
 
-        # Providers without required environment credentials can proceed.
-        return all(os.getenv(name, "").strip() for name in required)
-
-
+        return all(
+            os.getenv(name, "").strip()
+            for name in required
+        )
     def _create_ollama_fallback(self) -> BaseChatModel:
         """Return the configured local fallback model, using the cache."""
         fallback_name = "ollama_qwen"

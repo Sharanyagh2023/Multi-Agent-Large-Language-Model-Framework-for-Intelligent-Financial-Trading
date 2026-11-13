@@ -34,6 +34,21 @@ llms:
     temperature: 0.2
     max_tokens: 2048
 
+  openrouter:
+    provider: openai
+    model: openai/gpt-4o-mini
+    base_url: https://openrouter.ai/api/v1
+    api_key: ${OPENROUTER_API_KEY}
+    temperature: 0.2
+
+  groq:
+    provider: groq
+    model: openai/gpt-oss-20b
+    api_key: ${GROQ_API_KEY}
+    temperature: 0.2
+
+fallback_llm: groq
+
 default_llm: azure_gpt
 
 # Optional per-agent override. Agents not listed here use "default_llm".

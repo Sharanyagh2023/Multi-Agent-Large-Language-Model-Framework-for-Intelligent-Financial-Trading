@@ -66,7 +66,7 @@ class BaseAgent(ABC):
             return self._invoke_ollama(messages, output_schema)
 
         try:
-            structured_llm = self.llm.with_structured_output(output_schema)
+            structured_llm = self.llm.with_structured_output(output_schema, method="json_schema")
             return structured_llm.invoke(messages)
         except Exception as exc:
             if not self._is_fallback_error(exc):
@@ -193,7 +193,7 @@ class BaseAgent(ABC):
     ) -> SchemaType:
         """Run the structured-output request against local Ollama."""
         fallback = self._get_ollama_fallback()
-        structured_llm = fallback.with_structured_output(output_schema)
+        structured_llm = fallback.with_structured_output(output_schema, method="json_schema")
         return structured_llm.invoke(messages)
 
     @staticmethod

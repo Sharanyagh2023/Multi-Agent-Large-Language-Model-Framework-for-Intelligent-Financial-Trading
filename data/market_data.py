@@ -98,11 +98,35 @@ class MarketDataService:
 
     # ----- fundamentals -----------------------------------------------------
     
-    def get_fundamentals(self, ticker: str) -> Dict[str, Any]:
-        """Collect fundamental metrics according to the company's sector."""
+    def get_fundamentals(
+        self,
+        ticker: str,
+        as_of: str,
+    ) -> Dict[str, Any]:
+        """
+        Return current fundamentals only when they are valid for the
+        requested analysis date.
 
-        if self.point_in_time:
+        yfinance does not provide reliable historical point-in-time
+        fundamentals, so historical requests return empty data.
+        """
+
+        requested_date = datetime.strptime(as_of, "%Y-%m-%d").date()
+        today = datetime.now().date()
+
+        # Never use today's fundamentals for a historical analysis.
+        if self.point_in_time or requested_date < today:
+            logger.info(
+                "Fundamentals unavailable for historical analysis: %s (%s)",
+                ticker,
+                as_of,
+            )
             return {}
+
+        if requested_date > today:
+            raise ValueError(
+                f"Analysis date {as_of} cannot be in the future."
+            )
 
         try:
             info = yf.Ticker(ticker).info
@@ -110,15 +134,18 @@ class MarketDataService:
             logger.warning(
                 "Could not load fundamentals for %s: %s",
                 ticker,
-                error
+                error,
             )
             return {}
 
         sector = info.get("sector")
         industry = info.get("industry")
 
-        # Select metrics according to the company's sector.
-        if sector == "Financial Services" and industry and "bank" in industry.lower():
+        if (
+            sector == "Financial Services"
+            and industry
+            and "bank" in industry.lower()
+        ):
             selected_fields = (
                 METADATA_FIELDS
                 + COMMON_FUNDAMENTAL_FIELDS
@@ -131,12 +158,24 @@ class MarketDataService:
                 + NON_BANK_FUNDAMENTAL_FIELDS
             )
 
-        return {
+        fundamentals = {
             field: info[field]
             for field in selected_fields
             if info.get(field) is not None
         }
 
+        # Metadata describes the provider and retrieval date.
+        # It does NOT claim that the figures belong to a particular
+        # financial reporting period.
+        fundamentals["_source_metadata"] = {
+            "provider": "Yahoo Finance via yfinance",
+            "retrieved_at": datetime.now().isoformat(timespec="seconds"),
+            "financial_reporting_period": (
+                "Not provided by the yfinance info endpoint"
+            ),
+        }
+
+        return fundamentals
     # ----- news -------------------------------------------------------------
     def get_news(self, ticker: str, as_of: str, limit: int) -> List[Dict[str, str]]:
         """Recent headlines as [{'date', 'title', 'summary'}], newest first (empty in point-in-time mode)."""
@@ -178,9 +217,15 @@ class MarketDataService:
         return prices["Close"] if not prices.empty else pd.Series(dtype=float)
 
     def debug_fundamental_metadata(self, ticker: str):
-        info = yf.Ticker(ticker).info
-
-        print(f"\n--- {ticker} ---")
+        try:
+            info = yf.Ticker(ticker).info
+        except Exception as error:
+            logger.warning(
+                "Could not inspect fundamental metadata for %s: %s",
+                ticker,
+                error,
+            )
+            return
 
         fields = [
             "longName",
@@ -194,4 +239,4 @@ class MarketDataService:
         ]
 
         for field in fields:
-            print(f"{field}: {info.get(field)}")
+            logger.debug("%s - %s: %s", ticker, field, info.get(field))

@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 outputs/
 .venv-x64/
+.\.venv-x64\Scripts\Activate.ps1

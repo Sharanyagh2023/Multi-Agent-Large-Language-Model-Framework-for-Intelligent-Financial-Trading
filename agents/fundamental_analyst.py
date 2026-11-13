@@ -12,6 +12,9 @@ from data.market_data import (
     BANK_FUNDAMENTAL_FIELDS,
 )
 
+import logging
+
+logger = logging.getLogger(__name__)
 class FundamentalAnalyst(AnalystAgent):
     name = "fundamental_analyst"
     role_description = (
@@ -51,18 +54,29 @@ class FundamentalAnalyst(AnalystAgent):
 
 
     
-    def collect_data(self, ticker: str, as_of_date: str) -> Dict[str, Any]:
-        raw_data = self.market_data.get_fundamentals(ticker)
+    def collect_data(
+        self,
+        ticker: str,
+        as_of_date: str,
+    ) -> Dict[str, Any]:
 
-        print("\nDEBUG - RAW FUNDAMENTAL DATA:")
-        print(self.to_json(raw_data))
+        raw_data = self.market_data.get_fundamentals(
+            ticker,
+            as_of_date,
+        )
 
         if not raw_data:
+            logger.warning(
+                "No fundamental data available for %s on %s",
+                ticker,
+                as_of_date,
+            )
             return {}
 
         validated_data = self.validate_data(raw_data)
 
         expected_fields = self.get_expected_fields(validated_data)
+
         numeric_fields = [
             field for field in expected_fields
             if field not in METADATA_FIELDS
@@ -135,6 +149,10 @@ class FundamentalAnalyst(AnalystAgent):
             "total_metrics": len(numeric_fields),
         }
 
+        # Preserve source metadata without treating it as a financial metric.
+        if "_source_metadata" in data:
+            validated_data["_source_metadata"] = data["_source_metadata"]
+
         return validated_data
 
 
@@ -151,6 +169,16 @@ Configured market currency: {currency}
 
 FINANCIAL DATA:
 {self.to_json(data)}
+
+SOURCE INFORMATION:
+
+Source metadata:
+{self.to_json(data.get("_source_metadata", {}))}
+
+Use this metadata accurately.
+Do not invent financial reporting periods.
+If the reporting period is unavailable, explicitly acknowledge
+that the data provider did not supply it.
 
 YOUR TASK:
 
@@ -348,15 +376,105 @@ Return only the structured AnalystOpinion response.
             "beta": ("Beta", 3),
         }
 
-        key_points = []
         available_numeric_metrics = 0
 
+        # Build metric observations.
+        observations = {}
+
+        def add_observation(field, label, value, decimals=2, percentage=False):
+            global_placeholder = None
+
+            if not is_valid_number(value):
+                return
+
+            if percentage:
+                formatted_value = f"{format_number(value * 100)}%"
+            else:
+                formatted_value = format_number(value, decimals)
+
+            observations[field] = f"{label}: {formatted_value}"
+
+
+        # Percentage metrics.
+        for field, label in percentage_fields.items():
+            add_observation(
+                field,
+                label,
+                data.get(field),
+                percentage=True,
+            )
+
+        # Other numerical metrics.
+        for field, (label, decimals) in numeric_fields.items():
+            add_observation(
+                field,
+                label,
+                data.get(field),
+                decimals=decimals,
+            )
+
+        # Monetary values.
+        for field, label in [
+            ("marketCap", "Market capitalization (source value)"),
+            ("freeCashflow", "Free cash flow (source value)"),
+        ]:
+            value = data.get(field)
+
+            if is_valid_number(value):
+                observations[field] = f"{label}: {value:,.0f}"
+
+        # Yahoo Finance dividend yield is already expressed as a percentage.
+        dividend_yield = data.get("dividendYield")
+
+        if is_valid_number(dividend_yield):
+            observations["dividendYield"] = (
+                f"Dividend yield: {format_number(dividend_yield)}%"
+            )
+
+        available_numeric_metrics = len(observations)
+
+        # Select observations from different financial categories.
+        # The first available metric in each category is preferred.
+        category_priority = [
+            ["trailingPE", "forwardPE", "priceToBook"],
+            [
+                "profitMargins",
+                "operatingMargins",
+                "returnOnEquity",
+                "returnOnAssets",
+            ],
+            ["revenueGrowth", "earningsGrowth"],
+            ["debtToEquity", "currentRatio", "freeCashflow"],
+            ["marketCap", "beta", "dividendYield"],
+        ]
+
+        key_points = []
+        selected_fields = set()
+
+        for category in category_priority:
+            for field in category:
+                if field in observations:
+                    key_points.append(observations[field])
+                    selected_fields.add(field)
+                    break
+
+        # Fill remaining slots with other available metrics.
+        # Never exceed five key points.
+        for field, observation in observations.items():
+            if len(key_points) >= 5:
+                break
+
+            if field not in selected_fields:
+                key_points.append(observation)
+                selected_fields.add(field)
+
+        key_points = key_points[:5]
         # Percentage metrics.
         for field, label in percentage_fields.items():
             value = data.get(field)
 
             if is_valid_number(value):
-                available_numeric_metrics += 1
+                available_numeric_metrics =len(observations)
                 percentage = value * 100
                 key_points.append(
                     f"{label}: {format_number(percentage)}%"
@@ -367,7 +485,7 @@ Return only the structured AnalystOpinion response.
             value = data.get(field)
 
             if is_valid_number(value):
-                available_numeric_metrics += 1
+                available_numeric_metrics = len(observations)
                 key_points.append(
                     f"{label}: {format_number(value, decimals)}"
                 )
@@ -380,7 +498,7 @@ Return only the structured AnalystOpinion response.
             value = data.get(field)
 
             if is_valid_number(value):
-                available_numeric_metrics += 1
+                available_numeric_metrics = len(observations)
                 key_points.append(
                     f"{label}: {value:,.0f}"
                 )
@@ -389,7 +507,7 @@ Return only the structured AnalystOpinion response.
         dividend_yield = data.get("dividendYield")
 
         if is_valid_number(dividend_yield):
-            available_numeric_metrics += 1
+            available_numeric_metrics = len(observations)
             key_points.append(
                 f"Dividend Yield: {format_number(dividend_yield)}%"
             )
@@ -435,6 +553,9 @@ Return only the structured AnalystOpinion response.
 
         if not key_points:
             confidence = min(confidence, 0.30)
+
+        # Enforce the maximum of five key points.
+        key_points = key_points[:5]
 
         return opinion.model_copy(
             update={
