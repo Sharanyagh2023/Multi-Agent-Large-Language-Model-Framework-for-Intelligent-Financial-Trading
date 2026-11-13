@@ -25,7 +25,7 @@ def print_analysis(result: dict) -> None:
 
     proposal = result["trade_proposal"]
     print("\n=== TRADER PROPOSAL ===")
-    print(f"{proposal.action} at {proposal.position_size_pct:.0%} of portfolio\n  {proposal.rationale}")
+    print(f"{proposal.action} at {proposal.position_size_pct:.1%} of portfolio\n  {proposal.rationale}")
 
     risk = result["risk_assessment"]
     print("\n=== RISK REVIEW ===")
@@ -33,7 +33,7 @@ def print_analysis(result: dict) -> None:
 
     decision = result["final_decision"]
     print("\n=== FINAL DECISION ===")
-    print(f"{decision.ticker} on {decision.as_of_date}: {decision.action} {decision.position_size_pct:.0%}")
+    print(f"{decision.ticker} on {decision.as_of_date}: {decision.action} {decision.position_size_pct:.1%}")
 
 
 def print_backtest(result) -> None:

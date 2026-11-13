@@ -109,6 +109,7 @@ class TradingWorkflow:
             self.market_data,
             trading["price_lookback_days"],
             trading["max_position_pct"],
+            trading["target_volatility"],
         )
 
     # ----- graph wiring -----------------------------------------------------

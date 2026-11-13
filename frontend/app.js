@@ -462,7 +462,7 @@ function analystBody(report) {
 function traderBody(proposal) {
   return `
     <div style="display:flex;align-items:center;gap:10px">${badge(proposal.action, "lg")}
-      <span class="mono" style="font-size:18px;font-weight:600">${pct(proposal.position_size_pct, 0)}</span>
+      <span class="mono" style="font-size:18px;font-weight:600">${pct(proposal.position_size_pct, 1)}</span>
       <span class="muted">of portfolio</span></div>
     <p class="summary">${esc(proposal.rationale)}</p>`;
 }
@@ -473,7 +473,7 @@ function riskBody(assessment, metrics) {
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${badge(assessment.decision, "lg")}
       <span class="muted">risk</span>${badge(assessment.risk_level)}</div>
     <dl class="kv">
-      <div><dt>Approved size</dt><dd>${pct(assessment.adjusted_position_size_pct, 0)}</dd></div>
+      <div><dt>Approved size</dt><dd>${pct(assessment.adjusted_position_size_pct, 1)}</dd></div>
       <div><dt>Volatility (annual)</dt><dd>${pct(metrics.annualized_volatility)}</dd></div>
       <div><dt>Daily VaR 95%</dt><dd>${pct(metrics.daily_value_at_risk_95, 2)}</dd></div>
       <div><dt>Max drawdown</dt><dd>${pct(metrics.max_drawdown)}</dd></div>
@@ -497,7 +497,7 @@ function finalCard(analysis) {
       <div class="card-head"><div class="card-title"><span class="avatar">FD</span>Final decision</div>
         <span class="card-meta">${esc(decision.ticker)} · ${esc(decision.as_of_date)}</span></div>
       <div class="final-main">${badge(decision.action, "lg")}
-        <div class="final-size">${pct(decision.position_size_pct, 0)}<small>of portfolio</small></div>
+        <div class="final-size">${pct(decision.position_size_pct, 1)}<small>of portfolio</small></div>
         <span class="muted">risk</span>${badge(decision.risk_level)}</div>
       <h4>Rationale</h4><p>${esc(decision.rationale)}</p>
       <h4>Risk comments</h4><p>${esc(decision.risk_comments)}</p>
