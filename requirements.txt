@@ -12,3 +12,8 @@ numpy>=1.26
 scikit-learn>=1.4
 lightgbm>=4.0
 vaderSentiment>=3.3
+# web UI (python main.py serve)
+ag-ui-protocol>=0.1.10
+fastapi>=0.115
+uvicorn[standard]>=0.30
+langgraph-checkpoint-sqlite>=3.0   # checkpoints of every stage (web server)

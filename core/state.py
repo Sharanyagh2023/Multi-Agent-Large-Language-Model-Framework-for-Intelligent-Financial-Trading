@@ -1,6 +1,6 @@
 """The shared state that flows through the LangGraph workflow."""
 import operator
-from typing import Annotated, List, TypedDict
+from typing import Annotated, Dict, List, TypedDict
 
 from core.schemas import AnalystReport, FinalDecision, RiskAssessment, TradeProposal
 
@@ -16,5 +16,6 @@ class TradingState(TypedDict, total=False):
     as_of_date: str  # YYYY-MM-DD, the "today" the agents are allowed to know about
     analyst_reports: Annotated[List[AnalystReport], operator.add]
     trade_proposal: TradeProposal
+    risk_metrics: Dict[str, float]  # the numbers the risk manager reviewed (shown in the UI)
     risk_assessment: RiskAssessment
     final_decision: FinalDecision

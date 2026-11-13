@@ -31,7 +31,9 @@ def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
         return 0.0
     daily_excess_returns = returns - risk_free_rate / TRADING_DAYS_PER_YEAR
     daily_std = daily_excess_returns.std()
-    if daily_std == 0 or np.isnan(daily_std):
+    # A constant series (e.g. the strategy never held the stock) has a std of ~1e-19 from
+    # floating-point noise rather than exactly 0, which would give an absurd Sharpe ratio.
+    if np.isnan(daily_std) or daily_std < 1e-12:
         return 0.0
     return float(daily_excess_returns.mean() / daily_std * np.sqrt(TRADING_DAYS_PER_YEAR))
 

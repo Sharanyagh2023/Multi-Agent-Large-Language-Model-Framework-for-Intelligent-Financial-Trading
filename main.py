@@ -3,6 +3,7 @@
     python main.py analyze RELIANCE                 # decision for today (NSE: RELIANCE.NS)
     python main.py analyze TCS --date 2025-06-30    # decision as of a past date
     python main.py backtest INFY                    # walk-forward test (dates from config.yaml)
+    python main.py serve                            # web UI at http://127.0.0.1:8000
 """
 import argparse
 import logging
@@ -57,13 +58,29 @@ def build_argument_parser() -> argparse.ArgumentParser:
     backtest.add_argument("--start")
     backtest.add_argument("--end")
     backtest.add_argument("--rebalance-days", type=int)
+
+    serve = commands.add_parser("serve", help="start the web UI (chat + live agent dashboard)")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
     return parser
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s: %(message)s")
+    # Hide the per-request lines of the HTTP / LLM client libraries; keep their warnings and errors.
+    for noisy_logger in ("httpx", "httpx2", "httpcore", "httpcore2", "openai", "anthropic"):
+        logging.getLogger(noisy_logger).setLevel(logging.WARNING)
     args = build_argument_parser().parse_args()
     config = load_config()
+
+    if args.command == "serve":
+        import uvicorn
+
+        from api.server import create_app
+
+        print(f"RIO web UI: http://{args.host}:{args.port}")
+        uvicorn.run(create_app(config), host=args.host, port=args.port)
+        return
 
     if args.command == "analyze":
         workflow = TradingWorkflow(config, MarketDataService(config.market, point_in_time=False))

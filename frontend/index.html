@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RIO Trading Desk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- ?v= changes with each frontend release so browsers never mix old CSS/JS with new HTML -->
+  <link rel="stylesheet" href="styles.css?v=3">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">R</span>
+      <div>
+        <div class="brand-name">RIO</div>
+        <div class="brand-sub">Multi-agent trading desk</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="chip" id="market-chip">Connecting…</span>
+      <span class="run-status" id="run-status" data-state="idle"><span class="dot"></span><span class="label">Idle</span></span>
+      <button class="icon-btn" id="theme-toggle" type="button" title="Toggle light / dark theme" aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Left: results of every stage, rendered from the AG-UI shared state -->
+    <section class="board" id="board" aria-live="polite"></section>
+
+    <!-- Right: chat -->
+    <aside class="chat" aria-label="Chat with RIO">
+      <div class="chat-head">
+        <h2>Chat</h2>
+        <div class="chat-actions">
+          <!-- Saved chats (stored on the server, survive restarts) -->
+          <button class="text-btn recent-btn" id="recent-toggle" type="button" aria-haspopup="true" aria-expanded="false">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 1-9.95 11h2.02A8 8 0 1 0 6.3 6.3L9 9H2V2l2.88 2.88A9.96 9.96 0 0 1 12 2Zm1 5v5.59l3.7 3.7-1.4 1.42L11 13.41V7h2Z"/></svg>
+            Recent
+          </button>
+          <button class="text-btn" id="new-chat" type="button">New chat</button>
+        </div>
+        <div class="recent-menu" id="recent-menu" hidden>
+          <div class="recent-label">Recent chats</div>
+          <ul class="chat-list" id="chat-list"></ul>
+        </div>
+      </div>
+      <div class="messages" id="messages"></div>
+      <div class="suggestions" id="suggestions"></div>
+      <form class="composer" id="composer">
+        <textarea id="input" rows="1" placeholder="Ask RIO… e.g. Analyze RELIANCE" autocomplete="off"></textarea>
+        <button class="send-btn" id="send" type="submit" aria-label="Send">
+          <svg class="icon-send" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>
+          <svg class="icon-stop" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/></svg>
+        </button>
+      </form>
+      <p class="disclaimer">Educational prototype. Not financial advice.</p>
+    </aside>
+  </main>
+
+  <script src="app.js?v=3"></script>
+</body>
+</html>
