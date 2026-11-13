@@ -1,0 +1,79 @@
+# ---------------------------------------------------------------------------
+# RIO configuration
+#
+# 1. "llms"    : every model the project can use. Add a new block to add a model.
+# 2. "agents"  : which model each agent uses (must be a key from "llms").
+# 3. "markets" : market-specific settings; "active_market" picks the one in use.
+# 4. "trading" : settings shared by the agents and the workflow.
+# 5. "backtest": defaults for `python main.py backtest`.
+#
+# Values written as ${NAME} are read from environment variables / the .env file,
+# so no secret ever lives in this file.
+# ---------------------------------------------------------------------------
+
+llms:
+  azure_gpt:
+    provider: azure_openai
+    model: ${AZURE_OPENAI_CHAT_DEPLOYMENT_NAME}
+    azure_deployment: ${AZURE_OPENAI_CHAT_DEPLOYMENT_NAME}
+    azure_endpoint: ${AZURE_OPENAI_ENDPOINT}
+    api_version: ${AZURE_OPENAI_API_VERSION}
+    api_key: ${AZURE_OPENAI_API_KEY}
+    temperature: 0.2
+
+  openai_gpt:
+    provider: openai
+    model: gpt-4o-mini
+    api_key: ${OPENAI_API_KEY}
+    temperature: 0.2
+
+  claude:
+    provider: anthropic
+    model: claude-sonnet-5-5
+    api_key: ${ANTHROPIC_API_KEY}
+    temperature: 0.2
+    max_tokens: 2048
+
+default_llm: azure_gpt
+
+# Optional per-agent override. Agents not listed here use "default_llm".
+# The web UI's chat assistant can be overridden too, with the key "chat_assistant".
+agents:
+  fundamental_analyst: azure_gpt
+  technical_analyst: azure_gpt
+  sentiment_analyst: azure_gpt
+  news_analyst: azure_gpt
+  trader: azure_gpt
+  risk_manager: azure_gpt
+
+# Phase 1 supports the Indian market only. To add a market later, add a block here
+# (same keys) and point "active_market" at it.
+markets:
+  india:
+    name: "Indian equities (NSE/BSE)"
+    exchange_suffixes: [".NS", ".BO"]   # tickers must end with one of these on Yahoo Finance
+    default_suffix: ".NS"               # RELIANCE is read as RELIANCE.NS
+    benchmark_index: "^NSEI"            # Nifty 50
+    benchmark_name: "Nifty 50"
+    fear_index: "^INDIAVIX"             # India VIX
+    fear_index_high: 20                 # above this the market is fearful
+    fear_index_low: 13                  # below this the market is complacent
+    currency: "INR"
+    risk_free_rate: 0.07                # annual, about the Indian 10-year G-sec yield
+
+active_market: india
+
+trading:
+  price_lookback_days: 730      # history given to the technical analyst / ML model
+  news_limit: 10                # max headlines per run
+  max_position_pct: 0.20        # hard cap: one stock never exceeds 20% of the portfolio
+
+# Where the web server keeps its data (paths are relative to the project folder; outputs/ is git-ignored).
+storage:
+  database: outputs/rio.sqlite             # chats, messages, runs and every agent's stage output
+  checkpoints: outputs/checkpoints.sqlite  # LangGraph checkpoints: lets an interrupted analysis resume
+
+backtest:
+  start_date: "2025-01-01"
+  end_date: "2025-12-31"
+  rebalance_days: 21            # take a new decision roughly every month
