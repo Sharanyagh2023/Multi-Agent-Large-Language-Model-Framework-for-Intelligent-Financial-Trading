@@ -1,4 +1,4 @@
-# RIO – Multi-Agent LLM Framework for Explainable, Risk-Aware Trading
+# Multi-Agent LLM Framework for Explainable, Risk-Aware Trading
 
 **Phase 1 covers the Indian market only (NSE/BSE).**
 
@@ -99,7 +99,7 @@ Everything is in [config/config.yaml](config/config.yaml). Nothing in the Python
 
 ### 1. Choose the LLM
 
-`llms` lists the available models: `azure_gpt` (Azure OpenAI), `openai_gpt` (OpenAI) and `claude` (Anthropic).
+`llms` lists the available models: `ollama_qwen` (local, the default), `azure_gpt` (Azure OpenAI), `openai_gpt` (OpenAI) and `claude` (Anthropic).
 
 * Set `default_llm` to the one every agent should use.
 * To use a different model for one agent, list it under `agents`, for example `trader: claude`.
@@ -108,6 +108,7 @@ Everything is in [config/config.yaml](config/config.yaml). Nothing in the Python
 
 | Provider | `.env` variables needed |
 |---|---|
+| `ollama_qwen` | none: install [Ollama](https://ollama.com), run `ollama pull qwen2.5:7b` and keep Ollama running |
 | `azure_gpt` | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_CHAT_DEPLOYMENT_NAME`, `AZURE_OPENAI_API_VERSION` |
 | `openai_gpt` | `OPENAI_API_KEY` |
 | `claude` | `ANTHROPIC_API_KEY` |

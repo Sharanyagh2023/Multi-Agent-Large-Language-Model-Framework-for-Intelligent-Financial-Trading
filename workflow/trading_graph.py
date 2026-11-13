@@ -140,9 +140,17 @@ class TradingWorkflow:
         if risk.decision == "REJECT":
             action, size = "HOLD", 0.0
         elif risk.decision == "ADJUST":
-            action, size = proposal.action, risk.adjusted_position_size_pct
+            action = proposal.action
+            size = min(
+                proposal.position_size_pct,
+                risk.adjusted_position_size_pct,
+            )
         else:  # APPROVE
-            action, size = proposal.action, min(proposal.position_size_pct, risk.adjusted_position_size_pct)
+            action = proposal.action
+            size = min(
+                proposal.position_size_pct,
+                risk.adjusted_position_size_pct,
+            )
 
         decision = FinalDecision(
             ticker=state["ticker"],

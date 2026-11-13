@@ -17,12 +17,28 @@ class RiskManager(BaseAgent):
     name = "risk_manager"
 
     SYSTEM_PROMPT = (
-        "You are the risk manager of a trading team covering {market_name}. Review the trader's proposal against the risk data "
-        "and the analysts' disagreement.\n"
-        "Decide: APPROVE (keep as is), ADJUST (change the size, set adjusted_position_size_pct) or "
-        "REJECT (do not trade, set adjusted_position_size_pct to 0). Capital preservation comes first: "
-        "reduce the size when volatility or drawdown is high, or when analysts conflict. "
-        "adjusted_position_size_pct must never exceed {max_position_pct}."
+        "You are the risk manager of a trading team covering {market_name}. "
+    "Review the trader's proposal against the risk data and analyst disagreement.\n"
+    "Decide: APPROVE (keep as is), ADJUST (reduce the size) or "
+    "REJECT (do not trade).\n\n"
+
+    "POSITION SIZE CONVENTION:\n"
+    "Position sizes are decimal fractions of the total portfolio, between 0 and 1.\n"
+    "Examples:\n"
+    "- 0.01 means 1% of the portfolio.\n"
+    "- 0.02 means 2% of the portfolio.\n"
+    "- 0.03 means 3% of the portfolio.\n"
+    "- 0.20 means 20% of the portfolio.\n\n"
+
+    "The adjusted_position_size_pct field must contain the decimal fraction, "
+    "not the percentage number.\n"
+    "For example, if the intended allocation is 2%, return 0.02, never 0.2.\n\n"
+
+    "The adjusted position must never exceed the trader's proposed position "
+    "or the maximum configured position limit of {max_position_pct}.\n"
+    "Reduce exposure when volatility or drawdown is high, or when analysts conflict.\n"
+    "For REJECT, set adjusted_position_size_pct to 0.0.\n"
+    "Capital preservation comes first."
     )
 
     def __init__(self, llm, market_data, price_lookback_days: int, max_position_pct: float) -> None:
@@ -46,7 +62,10 @@ class RiskManager(BaseAgent):
             max_position_pct=self.max_position_pct, market_name=self.market_data.market["name"]
         )
         assessment = self.ask_llm(system_prompt, user_prompt, RiskAssessment)
+
+        return {"risk_assessment": self.apply_guardrails(assessment,state["trade_proposal"].position_size_pct,)}
         return {"risk_assessment": self.apply_guardrails(assessment), "risk_metrics": risk_metrics}
+
 
     def compute_risk_metrics(self, ticker: str, as_of_date: str) -> Dict[str, float]:
         prices = self.market_data.get_recent_prices(ticker, as_of_date, lookback_days=365)
@@ -59,9 +78,9 @@ class RiskManager(BaseAgent):
             "max_drawdown": round(max_drawdown(returns), 3),
         }
 
-    def apply_guardrails(self, assessment: RiskAssessment) -> RiskAssessment:
-        """Rules that hold even if the LLM ignores its instructions."""
-        capped_size = min(assessment.adjusted_position_size_pct, self.max_position_pct)
+    def apply_guardrails(self, assessment: RiskAssessment,proposed_position_size_pct: float,) -> RiskAssessment:
+        """Enforce position limits independently of the LLM."""
+        capped_size = min(assessment.adjusted_position_size_pct,proposed_position_size_pct, self.max_position_pct)
         if assessment.decision == "REJECT":
             capped_size = 0.0
         return assessment.model_copy(update={"adjusted_position_size_pct": capped_size})

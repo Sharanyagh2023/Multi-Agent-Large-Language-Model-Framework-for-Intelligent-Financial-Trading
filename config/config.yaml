@@ -36,7 +36,7 @@ llms:
 
 default_llm: azure_gpt
 
-# Optional per-agent override. Agents not listed here use "default_llm".
+
 # The web UI's chat assistant can be overridden too, with the key "chat_assistant".
 agents:
   fundamental_analyst: azure_gpt
@@ -68,10 +68,28 @@ trading:
   news_limit: 10                # max headlines per run
   max_position_pct: 0.20        # hard cap: one stock never exceeds 20% of the portfolio
 
+
+# Technical analyst's ML direction model (see ml/README.md). One LightGBM model is
+# trained on the pooled history of the training universe and re-used until it is
+# older than max_model_age_days; it never sees prices after the analysis date.
+# Leave "universe" out to use the default list of ~47 Nifty 50 large caps (ml/settings.py).
+technical_model:
+  horizon_days: 5                   # predict down / flat / up over the next 5 trading days
+  flat_threshold_vol_multiple: 0.5  # a move smaller than 0.5 x the stock's normal 5-day move counts as "flat"
+  training_years: 8
+  max_model_age_days: 90            # retrain automatically after this (also during backtests)
+  min_edge: 0.03                    # balanced accuracy above chance (0.333) needed to call the model "weak"; 2x = "useful"
+  validation_folds: 4
+  validation_share: 0.4
+  calibration_share: 0.15
+  top_drivers: 5
+  artifacts_dir: ml/artifacts
+
 # Where the web server keeps its data (paths are relative to the project folder; outputs/ is git-ignored).
 storage:
   database: outputs/rio.sqlite             # chats, messages, runs and every agent's stage output
   checkpoints: outputs/checkpoints.sqlite  # LangGraph checkpoints: lets an interrupted analysis resume
+
 
 backtest:
   start_date: "2025-01-01"
