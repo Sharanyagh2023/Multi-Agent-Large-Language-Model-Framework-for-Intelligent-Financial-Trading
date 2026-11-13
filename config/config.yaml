@@ -67,6 +67,7 @@ trading:
   price_lookback_days: 730      # history given to the technical analyst / ML model
   news_limit: 10                # max headlines per run
   max_position_pct: 0.20        # hard cap: one stock never exceeds 20% of the portfolio
+  target_volatility: 0.20       # risk manager scales a position down when the stock's annual volatility is above this
 
 
 # Technical analyst's ML direction model (see ml/README.md). One LightGBM model is

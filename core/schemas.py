@@ -30,12 +30,28 @@ class AnalystReport(AnalystOpinion):
     ticker: str
 
 
+class TraderView(BaseModel):
+    """What the trader LLM returns. The position size is computed from it in code."""
+
+    action: TradeAction
+    conviction: float = Field(ge=0.0, le=1.0, description="0 = no conviction, 1 = very high conviction in this action.")
+    rationale: str = Field(description="Why this action, referring to the analyst reports.")
+
+
 class TradeProposal(BaseModel):
     """The trader's recommendation, before risk review."""
 
     action: TradeAction
     position_size_pct: float = Field(ge=0.0, le=1.0, description="Target share of the portfolio in this stock.")
     rationale: str = Field(description="Why this action, referring to the analyst reports.")
+
+
+class RiskView(BaseModel):
+    """What the risk manager LLM returns. The approved size is computed from the risk metrics in code."""
+
+    decision: RiskDecision = Field(description="REJECT to block the trade; APPROVE or ADJUST to let it through.")
+    risk_level: RiskLevel
+    comments: str = Field(description="Main risks and why the decision was taken.")
 
 
 class RiskAssessment(BaseModel):
