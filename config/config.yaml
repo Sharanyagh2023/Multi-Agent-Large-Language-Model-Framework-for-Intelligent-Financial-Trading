@@ -34,15 +34,7 @@ llms:
     temperature: 0.2
     max_tokens: 2048
 
-  # Local model through Ollama (no API key). Install Ollama, then: ollama pull qwen2.5:7b
-  ollama_qwen:
-    provider: ollama
-    model: qwen2.5:7b
-    base_url: http://localhost:11434
-    temperature: 0.2
-    num_ctx: 8192        # Ollama's default context is too short for the trader / risk manager prompts
-
-default_llm: ollama_qwen
+default_llm: azure_gpt
 
 
 # The web UI's chat assistant can be overridden too, with the key "chat_assistant".
@@ -53,7 +45,6 @@ agents:
   news_analyst: azure_gpt
   trader: azure_gpt
   risk_manager: azure_gpt
-
 
 # Phase 1 supports the Indian market only. To add a market later, add a block here
 # (same keys) and point "active_market" at it.

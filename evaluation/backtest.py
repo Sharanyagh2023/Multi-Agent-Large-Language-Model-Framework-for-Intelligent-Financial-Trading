@@ -109,3 +109,4 @@ class Backtester:
             if on_decision is not None:
                 on_decision(row, index, len(decision_dates))
         return weight_by_date, decision_rows
+
